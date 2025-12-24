@@ -76,7 +76,13 @@ export default function OnboardingPage() {
         .from('users')
         .select('organization_id, organizations(onboarding_completed, onboarding_step)')
         .eq('auth_id', user.id)
-        .single();
+        .single<{ 
+          organization_id: string; 
+          organizations: { 
+            onboarding_completed: boolean; 
+            onboarding_step: number; 
+          } 
+        }>();
 
       if (existingUser?.organizations?.onboarding_completed) {
         router.push('/dashboard');
