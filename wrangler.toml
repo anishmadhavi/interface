@@ -2,3 +2,9 @@ name = "interface"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+NEXT_PUBLIC_APP_URL = "https://interface-a6a.pages.dev"
+NEXT_PUBLIC_APP_NAME = "Interface"
+NEXT_PUBLIC_SUPABASE_URL = "https://bdfdxspcsqvsxgnnbyyx.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkZmR4c3Bjc3F2c3hnbm5ieXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0ODcyODksImV4cCI6MjA4MjA2MzI4OX0.3nPY9jc4smXJqhZI0vvNiElagQ9CCHH0Tlk-ObCXrFQ"
