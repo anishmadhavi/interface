@@ -42,7 +42,7 @@ export default function LoginPage() {
           .from('users')
           .select('organization_id')
           .eq('auth_id', data.user.id)
-          .maybeSingle();
+          .maybeSingle<{ organization_id: string }>(); // <--- Added generic type here
 
         if (userError) {
           console.error('User fetch error:', userError);
