@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     }
 
     // Check for recent OTP in webhook logs
+    // FIX APPLIED HERE: Added explicit type definition for the log data
     const { data: log } = await supabase
       .from('webhook_logs')
       .select('payload, created_at')
@@ -33,7 +34,10 @@ export async function GET(request: Request) {
       .eq('event_type', 'SMS_RECEIVED')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .single<{ 
+        payload: { extractedOtp?: string }; 
+        created_at: string; 
+      }>();
 
     if (log?.payload?.extractedOtp) {
       // Check if OTP is less than 10 minutes old
