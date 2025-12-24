@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+export const runtime = 'edge';
+
 // Store recent OTPs in memory (in production, use Redis or database)
 // Key: phone number, Value: { otp: string, timestamp: number }
 const otpStore = new Map<string, { otp: string; timestamp: number }>();
