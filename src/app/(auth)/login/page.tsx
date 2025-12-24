@@ -38,26 +38,38 @@ export default function LoginPage() {
 
       if (data.user) {
         // Check if user has completed onboarding
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('organization_id, organizations(onboarding_completed)')
+          .select('organization_id')
           .eq('auth_id', data.user.id)
-          .single();
+          .maybeSingle();
 
-        if (!userData?.organization_id) {
+        if (userError) {
+          console.error('User fetch error:', userError);
+        }
+
+        if (!userData || !userData.organization_id) {
           // New user, needs onboarding
           router.push('/onboarding');
-        } else if (!userData?.organizations?.onboarding_completed) {
-          // Incomplete onboarding
-          router.push('/onboarding');
         } else {
-          // Go to dashboard
-          router.push('/dashboard');
+          // Check onboarding status
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('onboarding_completed')
+            .eq('id', userData.organization_id)
+            .maybeSingle();
+
+          if (!orgData?.onboarding_completed) {
+            router.push('/onboarding');
+          } else {
+            router.push('/dashboard');
+          }
         }
         
         router.refresh();
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
