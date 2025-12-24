@@ -37,8 +37,9 @@ export async function POST(request: Request) {
       + '-' + Date.now().toString(36);
 
     // Create organization
-    const { data: org, error: orgError } = await adminClient
-      .from('organizations')
+    // FIX 1: Added 'as any' cast
+    const { data: org, error: orgError } = await (adminClient
+      .from('organizations') as any)
       .insert({
         name: businessName,
         slug,
@@ -61,8 +62,9 @@ export async function POST(request: Request) {
     }
 
     // Create default admin role
-    const { data: role, error: roleError } = await adminClient
-      .from('roles')
+    // FIX 2: Added 'as any' cast
+    const { data: role, error: roleError } = await (adminClient
+      .from('roles') as any)
       .insert({
         organization_id: org.id,
         name: 'Admin',
@@ -87,7 +89,8 @@ export async function POST(request: Request) {
     if (roleError) {
       console.error('Role creation error:', roleError);
       // Rollback organization
-      await adminClient.from('organizations').delete().eq('id', org.id);
+      // FIX 3: Added 'as any' cast
+      await (adminClient.from('organizations') as any).delete().eq('id', org.id);
       return NextResponse.json(
         { error: 'Failed to create role: ' + roleError.message },
         { status: 500 }
@@ -95,8 +98,9 @@ export async function POST(request: Request) {
     }
 
     // Create user record
-    const { error: userError } = await adminClient
-      .from('users')
+    // FIX 4: Added 'as any' cast
+    const { error: userError } = await (adminClient
+      .from('users') as any)
       .insert({
         auth_id: userId,
         organization_id: org.id,
@@ -110,8 +114,9 @@ export async function POST(request: Request) {
     if (userError) {
       console.error('User creation error:', userError);
       // Rollback
-      await adminClient.from('roles').delete().eq('id', role.id);
-      await adminClient.from('organizations').delete().eq('id', org.id);
+      // FIX 5: Added 'as any' cast
+      await (adminClient.from('roles') as any).delete().eq('id', role.id);
+      await (adminClient.from('organizations') as any).delete().eq('id', org.id);
       return NextResponse.json(
         { error: 'Failed to create user: ' + userError.message },
         { status: 500 }
