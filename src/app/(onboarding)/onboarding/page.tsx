@@ -121,10 +121,10 @@ export default function OnboardingPage() {
     if (!data.organizationId) return;
     
     const supabase = createClient();
-    await supabase
-      .from('organizations')
-      // FIX APPLIED HERE: Added 'as any' to bypass strict type check on update
-      .update({ onboarding_step: step } as any)
+    
+    // FIX APPLIED: Cast the query builder to 'any' to bypass 'never' type restriction
+    await (supabase.from('organizations') as any)
+      .update({ onboarding_step: step })
       .eq('id', data.organizationId);
   };
 
@@ -132,13 +132,13 @@ export default function OnboardingPage() {
     if (!data.organizationId) return;
     
     const supabase = createClient();
-    await supabase
-      .from('organizations')
-      // FIX APPLIED HERE: Added 'as any' to bypass strict type check on update
+    
+    // FIX APPLIED: Cast the query builder to 'any' to bypass 'never' type restriction
+    await (supabase.from('organizations') as any)
       .update({ 
         onboarding_completed: true,
         onboarding_step: 4,
-      } as any)
+      })
       .eq('id', data.organizationId);
 
     router.push('/dashboard');
