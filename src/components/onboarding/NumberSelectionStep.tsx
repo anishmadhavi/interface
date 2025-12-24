@@ -97,8 +97,9 @@ export function NumberSelectionStep({
         updatePayload.virtual_number_monthly_cost = 150;
       }
 
-      const { error: updateError } = await supabase
-        .from('organizations')
+      // FIX: Cast query builder to 'any' to bypass missing table types
+      const { error: updateError } = await (supabase
+        .from('organizations') as any)
         .update(updatePayload)
         .eq('id', data.organizationId);
 
