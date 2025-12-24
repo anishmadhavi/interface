@@ -35,16 +35,17 @@ export async function POST(request: Request) {
       const supabase = createAdminClient();
       
       // Find organization by virtual number
+      // FIX 1: Added explicit type definition
       const { data: org } = await supabase
         .from('organizations')
         .select('id')
         .eq('virtual_number', to)
-        .single();
+        .single<{ id: string }>();
 
       if (org) {
         // Log the webhook
-        await supabase
-          .from('webhook_logs')
+        // FIX 2: Added 'as any' to bypass insert restriction
+        await (supabase.from('webhook_logs') as any)
           .insert({
             organization_id: org.id,
             source: 'TWILIO',
@@ -95,11 +96,12 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
 
     // Get organization's virtual number
+    // FIX 3: Added explicit type definition
     const { data: org } = await supabase
       .from('organizations')
       .select('virtual_number')
       .eq('id', organizationId)
-      .single();
+      .single<{ virtual_number: string }>();
 
     if (!org?.virtual_number) {
       return NextResponse.json(
@@ -116,6 +118,7 @@ export async function GET(request: Request) {
     }
 
     // Check database for recent OTP
+    // FIX 4: Added explicit type definition for payload
     const { data: log } = await supabase
       .from('webhook_logs')
       .select('payload')
@@ -124,7 +127,7 @@ export async function GET(request: Request) {
       .eq('event_type', 'SMS_RECEIVED')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .single<{ payload: { extractedOtp?: string } }>();
 
     if (log?.payload?.extractedOtp) {
       return NextResponse.json({ otp: log.payload.extractedOtp });
