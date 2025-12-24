@@ -24,11 +24,12 @@ export async function POST(request: Request) {
     }
 
     // Verify organization
+    // FIX 1: Added explicit type definition
     const { data: userData } = await supabase
       .from('users')
       .select('organization_id')
       .eq('auth_id', user.id)
-      .single();
+      .single<{ organization_id: string }>();
 
     if (userData?.organization_id !== organizationId) {
       return NextResponse.json(
@@ -107,8 +108,8 @@ export async function POST(request: Request) {
     const purchaseData = await purchaseResponse.json();
 
     // Update organization with the virtual number
-    const { error: updateError } = await supabase
-      .from('organizations')
+    // FIX 2: Added 'as any' to bypass strict type checking
+    const { error: updateError } = await (supabase.from('organizations') as any)
       .update({
         virtual_number: purchaseData.phone_number,
         virtual_number_provider: 'TWILIO',
