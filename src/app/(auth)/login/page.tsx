@@ -57,7 +57,7 @@ export default function LoginPage() {
             .from('organizations')
             .select('onboarding_completed')
             .eq('id', userData.organization_id)
-            .maybeSingle();
+            .maybeSingle<{ onboarding_completed: boolean }>();
 
           if (!orgData?.onboarding_completed) {
             router.push('/onboarding');
