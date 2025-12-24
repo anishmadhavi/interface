@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,87 +47,28 @@ export function BusinessDetailsStep({
     setError(null);
 
     try {
-      const supabase = createClient();
-      
-      // Generate slug from business name
-      const slug = data.businessName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        + '-' + Date.now().toString(36);
+      // Call API route to create organization (uses service role)
+      const response = await fetch('/api/onboarding/create-organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: data.businessName,
+          businessCategory: data.businessCategory,
+          website: data.website,
+          userId,
+          userEmail,
+          userName,
+        }),
+      });
 
-      // Create organization
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: data.businessName,
-          slug,
-          business_name: data.businessName,
-          business_category: data.businessCategory,
-          website: data.website || null,
-          subscription_status: 'TRIAL',
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
-          onboarding_step: 1,
-        })
-        .select()
-        .single();
+      const result = await response.json();
 
-      if (orgError) {
-        console.error('Org error:', orgError);
-        setError('Failed to create organization');
+      if (!response.ok) {
+        setError(result.error || 'Failed to create organization');
         return;
       }
 
-      // Create default admin role
-      const { data: role, error: roleError } = await supabase
-        .from('roles')
-        .insert({
-          organization_id: org.id,
-          name: 'Admin',
-          description: 'Full access to all features',
-          is_admin: true,
-          is_default: true,
-          permissions: {
-            inbox: { view: true, reply: true, assign: true },
-            contacts: { view: true, create: true, edit: true, delete: true, import: true, export: true },
-            templates: { view: true, create: true, edit: true, delete: true },
-            campaigns: { view: true, create: true, edit: true, delete: true, send: true },
-            analytics: { view: true },
-            team: { view: true, invite: true, edit: true, remove: true },
-            billing: { view: true, manage: true },
-            integrations: { view: true, manage: true },
-            settings: { view: true, edit: true },
-          },
-        })
-        .select()
-        .single();
-
-      if (roleError) {
-        console.error('Role error:', roleError);
-        setError('Failed to create role');
-        return;
-      }
-
-      // Create user record
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          auth_id: userId,
-          organization_id: org.id,
-          role_id: role.id,
-          email: userEmail,
-          full_name: userName || userEmail.split('@')[0],
-          is_owner: true,
-          is_active: true,
-        });
-
-      if (userError) {
-        console.error('User error:', userError);
-        setError('Failed to create user');
-        return;
-      }
-
-      updateData({ organizationId: org.id });
+      updateData({ organizationId: result.organizationId });
       onNext();
     } catch (err) {
       console.error('Error:', err);
