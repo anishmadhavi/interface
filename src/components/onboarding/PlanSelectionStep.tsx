@@ -54,8 +54,10 @@ export function PlanSelectionStep({
   useEffect(() => {
     const fetchPlans = async () => {
       const supabase = createClient();
-      const { data: plansData, error } = await supabase
-        .from('subscription_plans')
+      
+      // FIX 1: Cast query builder to 'any' to bypass missing table types
+      const { data: plansData, error } = await (supabase
+        .from('subscription_plans') as any)
         .select('*')
         .eq('is_active', true)
         .order('sort_order');
@@ -84,8 +86,9 @@ export function PlanSelectionStep({
     try {
       const supabase = createClient();
       
-      const { error: updateError } = await supabase
-        .from('organizations')
+      // FIX 2: Cast query builder to 'any' to bypass missing table types
+      const { error: updateError } = await (supabase
+        .from('organizations') as any)
         .update({
           subscription_plan_id: data.selectedPlanId,
           onboarding_step: 2,
