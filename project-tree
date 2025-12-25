@@ -63,7 +63,8 @@
 │   ├── lib
 │   │   ├── supabase
 │   │   │   ├── admin.ts
-│   │   │   └── client.ts
+│   │   │   ├── client.ts
+│   │   │   └── server.ts
 │   │   └── utils.ts
 │   └── types
 │       └── database.ts
@@ -71,4 +72,4 @@
 ├── tsconfig.json
 └── wrangler.toml
 
-28 directories, 44 files
+28 directories, 45 files
