@@ -1,48 +1,66 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
-// ⚠️ CHECK: The word 'async' MUST NOT be here
-export function createClient() {
-  console.log('Server Client: Initializing...');
+export const runtime = 'edge';
 
-  // ⚠️ CHECK: The word 'await' MUST NOT be here
-  const cookieStore = cookies();
-  console.log('Server Client: Cookies loaded');
+// Edge-compatible server client
+// Uses request/response for cookie handling instead of Next.js cookies()
+export function createClient(request?: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    console.error('CRITICAL ERROR: Supabase Env vars are missing!');
-    console.error('URL:', url);
-    console.error('Key:', key ? 'Exists' : 'Missing');
-    throw new Error('Supabase Env vars missing in server.ts');
+  // Get auth token from request cookies if available
+  let accessToken: string | undefined;
+  
+  if (request) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').filter(Boolean).map(c => {
+        const [key, ...val] = c.split('=');
+        return [key, val.join('=')];
+      })
+    );
+    
+    // Supabase stores auth in sb-<project-ref>-auth-token cookie
+    const authCookieName = Object.keys(cookies).find(name => 
+      name.includes('auth-token') || name.includes('supabase')
+    );
+    
+    if (authCookieName) {
+      try {
+        const cookieValue = decodeURIComponent(cookies[authCookieName]);
+        const parsed = JSON.parse(cookieValue);
+        accessToken = parsed.access_token || parsed[0]?.access_token;
+      } catch {
+        // Cookie parsing failed, continue without token
+      }
+    }
   }
 
-  return createServerClient<Database>(
-    url,
-    key,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch (error) {
-            // Handle cookies in Server Components
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options });
-          } catch (error) {
-            // Handle cookies in Server Components
-          }
-        },
-      },
-    }
-  );
+  const client = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: accessToken ? {
+        Authorization: `Bearer ${accessToken}`,
+      } : {},
+    },
+  });
+
+  return client;
+}
+
+// Helper to get session from request
+export async function getSession(request: Request) {
+  const client = createClient(request);
+  const { data: { user }, error } = await client.auth.getUser();
+  
+  if (error || !user) {
+    return null;
+  }
+  
+  return { user };
 }
