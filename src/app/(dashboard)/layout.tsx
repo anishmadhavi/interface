@@ -26,24 +26,24 @@ export default function DashboardLayout({
       }
 
       // Check if onboarding is completed
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('organization_id')
         .eq('auth_id', session.user.id)
         .maybeSingle();
 
-      if (!userData?.organization_id) {
+      if (userError || !userData || !userData.organization_id) {
         router.push('/onboarding');
         return;
       }
 
-      const { data: orgData } = await supabase
+      const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .select('onboarding_completed')
         .eq('id', userData.organization_id)
         .maybeSingle();
 
-      if (!orgData?.onboarding_completed) {
+      if (orgError || !orgData || !orgData.onboarding_completed) {
         router.push('/onboarding');
         return;
       }
