@@ -2,7 +2,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types/database';
 
-export async function createClient() {
+// 1. Remove 'async' from the function definition
+export function createClient() {
+  // 2. Remove 'await' from cookies()
   const cookieStore = cookies();
 
   return createServerClient<Database>(
