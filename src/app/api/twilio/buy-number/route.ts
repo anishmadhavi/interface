@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminClient, verifyToken, extractTokenFromCookies } from '@/lib/supabase/admin';
-
-export const runtime = 'edge';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -14,17 +12,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify user is authenticated
-    const cookieHeader = request.headers.get('cookie') || '';
-    const accessToken = extractTokenFromCookies(cookieHeader);
+    // Verify user is authenticated and belongs to this organization
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { user, error: authError } = await verifyToken(accessToken);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verify organization
+    const { data: userData } = await supabase
+      .from('users')
+      .select('organization_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (userData?.organization_id !== organizationId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     // Check Twilio credentials
@@ -40,10 +50,10 @@ export async function POST(request: Request) {
 
     // Search for available US phone numbers
     const searchUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/AvailablePhoneNumbers/US/Local.json?SmsEnabled=true&VoiceEnabled=true&Limit=1`;
-
+    
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
+        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
       },
     });
 
@@ -57,7 +67,7 @@ export async function POST(request: Request) {
     }
 
     const searchData = await searchResponse.json();
-
+    
     if (!searchData.available_phone_numbers || searchData.available_phone_numbers.length === 0) {
       return NextResponse.json(
         { error: 'No phone numbers available' },
@@ -74,7 +84,7 @@ export async function POST(request: Request) {
     const purchaseResponse = await fetch(purchaseUrl, {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
+        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
@@ -96,16 +106,21 @@ export async function POST(request: Request) {
 
     const purchaseData = await purchaseResponse.json();
 
-    // Update organization with virtual number
-    await adminClient
+    // Update organization with the virtual number
+    const { error: updateError } = await supabase
       .from('organizations')
       .update({
         virtual_number: purchaseData.phone_number,
         virtual_number_provider: 'TWILIO',
         virtual_number_sid: purchaseData.sid,
-        virtual_number_monthly_cost: 200, // Updated price
+        virtual_number_monthly_cost: 150,
       })
       .eq('id', organizationId);
+
+    if (updateError) {
+      console.error('Database update error:', updateError);
+      // Number is purchased but DB failed - still return success
+    }
 
     return NextResponse.json({
       phoneNumber: purchaseData.phone_number,
