@@ -1,55 +1,38 @@
-import { NextResponse, type NextRequest } from 'next/server';
-
-export const runtime = 'experimental-edge';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Protected routes - require authentication
-  const protectedPaths = [
-    '/dashboard',
-    '/inbox',
-    '/contacts',
-    '/templates',
-    '/campaigns',
-    '/analytics',
-    '/integrations',
-    '/team',
-    '/billing',
-    '/settings',
-    '/automations',
-    '/quick-replies',
-    '/onboarding',
-    '/marketing-ads',
-    '/workflows',
-    '/trust-center',
-  ];
+  const { pathname } = request.nextUrl;
 
-  // Auth routes - redirect to dashboard if already logged in
-  const authPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
-
-  const isProtectedPath = protectedPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  const isAuthPath = authPaths.some(path =>
-    request.nextUrl.pathname.startsWith(path)
-  );
-
-  // Check for auth cookie presence (not validity - that's done client-side)
-  const cookieHeader = request.headers.get('cookie') || '';
-  const hasAuthCookie = cookieHeader.includes('auth-token') || 
-                        cookieHeader.includes('supabase') ||
-                        cookieHeader.includes('sb-');
-
-  // If trying to access protected route without cookie, redirect to login
-  if (isProtectedPath && !hasAuthCookie) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+  // ✅ Hard skip internals & APIs (Cloudflare-safe)
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname === '/favicon.ico'
+  ) {
+    return NextResponse.next();
   }
 
-  // If has cookie and trying to access auth pages, redirect to dashboard
-  if (isAuthPath && hasAuthCookie) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  const protectedPaths = [
+    '/dashboard', '/inbox', '/contacts', '/templates', '/campaigns',
+    '/analytics', '/integrations', '/team', '/billing', '/settings',
+    '/automations', '/quick-replies', '/onboarding', '/marketing-ads',
+    '/workflows', '/trust-center',
+  ];
+
+  const isProtectedPath = protectedPaths.some(path =>
+    pathname.startsWith(path)
+  );
+
+  // ✅ Edge-safe cookie presence check
+  const hasSessionCookie =
+    request.cookies.has('auth-token') ||
+    request.cookies.getAll().some(c => c.name.startsWith('sb-'));
+
+  if (isProtectedPath && !hasSessionCookie) {
+    const url = new URL('/login', request.url);
+    url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
@@ -57,6 +40,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
