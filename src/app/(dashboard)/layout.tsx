@@ -7,6 +7,16 @@ import { Sidebar } from '@/components/common/Sidebar';
 import { Header } from '@/components/common/Header';
 import { Loader2 } from 'lucide-react';
 
+// Define the shape of the user data we expect
+interface UserData {
+  organization_id: string | null;
+}
+
+// Define the shape of the organization data we expect
+interface OrgData {
+  onboarding_completed: boolean;
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -25,23 +35,25 @@ export default function DashboardLayout({
         return;
       }
 
-      // Check if user exists and has completed onboarding
+      // 1. Fetch User Data with explicit typing
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('organization_id')
         .eq('auth_id', session.user.id)
-        .maybeSingle();
+        .maybeSingle<UserData>(); // <--- FIX: Added <UserData> generic
 
+      // 2. Fix the check
       if (userError || !userData || !userData.organization_id) {
         router.push('/onboarding');
         return;
       }
 
+      // 3. Fetch Organization Data with explicit typing
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .select('onboarding_completed')
         .eq('id', userData.organization_id)
-        .maybeSingle();
+        .maybeSingle<OrgData>(); // <--- FIX: Added <OrgData> generic
 
       if (orgError || !orgData || !orgData.onboarding_completed) {
         router.push('/onboarding');
