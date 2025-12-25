@@ -1,62 +1,114 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 
-  // 1. FAST EXIT: Skip assets and internal routes
-  if (
-    pathname.startsWith('/_next') || 
-    pathname.startsWith('/api') || 
-    pathname === '/favicon.ico' || 
-    pathname.includes('.')
-  ) {
-    return NextResponse.next()
-  }
-
-  const isProtectedRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/inbox')
-  if (!isProtectedRoute) return NextResponse.next()
-
-  // 2. Locate the Auth Cookie
-  // Supabase SSR cookies often start with "sb-" followed by your project ref
-  const allCookies = request.cookies.getAll()
-  const authCookie = allCookies.find(c => c.name.includes('-auth-token'))?.value
-
-  if (!authCookie) {
-    return redirectToLogin(request, pathname)
-  }
-
-  try {
-    // 3. MANUAL AUTH CHECK (Zero SDK dependencies)
-    // We call the Supabase Auth API directly using standard fetch
-    const sessionData = JSON.parse(authCookie)
-    const accessToken = sessionData.access_token
-
-    const authResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          });
+        },
       },
-    })
-
-    if (!authResponse.ok) {
-      return redirectToLogin(request, pathname)
     }
+  );
 
-    return NextResponse.next()
-  } catch (err) {
-    // If cookie is malformed or fetch fails, treat as unauthenticated
-    return redirectToLogin(request, pathname)
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // Protected routes - require authentication
+  const protectedPaths = [
+    '/dashboard',
+    '/inbox',
+    '/contacts',
+    '/templates',
+    '/campaigns',
+    '/analytics',
+    '/integrations',
+    '/team',
+    '/billing',
+    '/settings',
+    '/automations',
+    '/quick-replies',
+    '/onboarding',
+  ];
+
+  // Auth routes - redirect to dashboard if already logged in
+  const authPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+  const isProtectedPath = protectedPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  const isAuthPath = authPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  // If trying to access protected route without session, redirect to login
+  if (isProtectedPath && !session) {
+    const redirectUrl = new URL('/login', request.url);
+    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
-}
 
-function redirectToLogin(request: NextRequest, pathname: string) {
-  const url = request.nextUrl.clone()
-  url.pathname = '/login'
-  url.searchParams.set('redirect', pathname)
-  return NextResponse.redirect(url)
+  // If logged in and trying to access auth pages, redirect to dashboard
+  if (isAuthPath && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return response;
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
-}
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes (except auth)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+};
