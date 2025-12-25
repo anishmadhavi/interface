@@ -65,11 +65,10 @@
 │   │   │   ├── admin.ts
 │   │   │   └── client.ts
 │   │   └── utils.ts
-│   ├── middleware.ts
 │   └── types
 │       └── database.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
 └── wrangler.toml
 
-28 directories, 45 files
+28 directories, 44 files
