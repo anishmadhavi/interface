@@ -1,0 +1,43 @@
+name: Generate Project Tree
+
+# Run this action when code is pushed to the main branch
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
+# Give the Action permission to write to your repository
+permissions:
+  contents: write
+
+jobs:
+  update-tree:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Check out your code
+      - uses: actions/checkout@v4
+
+      # Step 2: Install the 'tree' utility
+      - name: Install tree
+        run: sudo apt-get install -y tree
+
+      # Step 3: Generate the tree and save it to a file named 'project-tree'
+      # -I 'node_modules|.git' tells it to ignore those heavy folders
+      - name: Run Tree Command
+        run: tree -I 'node_modules|.git|dist' > project-tree
+
+      # Step 4: Commit and Push the new file back to the repo
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add project-tree
+          
+          # Check if there are changes before committing to avoid errors
+          if git diff --staged --quiet; then
+            echo "No changes in file tree."
+          else
+            git commit -m "Update project-tree file"
+            git push
+          fi
