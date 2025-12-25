@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { adminClient, verifyToken, extractTokenFromCookies } from '@/lib/supabase/admin';
 
 export const runtime = 'edge';
 
@@ -16,75 +16,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify the user is authenticated by checking the token
+    // Verify user is authenticated
     const cookieHeader = request.headers.get('cookie') || '';
-    let accessToken: string | undefined;
-
-    const cookies = Object.fromEntries(
-      cookieHeader.split('; ').filter(Boolean).map(c => {
-        const [key, ...val] = c.split('=');
-        return [key, val.join('=')];
-      })
-    );
-
-    const authCookieName = Object.keys(cookies).find(name => 
-      name.includes('auth-token') || name.includes('supabase')
-    );
-
-    if (authCookieName) {
-      try {
-        const cookieValue = decodeURIComponent(cookies[authCookieName]);
-        const parsed = JSON.parse(cookieValue);
-        accessToken = parsed.access_token || parsed[0]?.access_token;
-      } catch {
-        // Cookie parsing failed
-      }
-    }
+    const accessToken = extractTokenFromCookies(cookieHeader);
 
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify token and get user
-    const userClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-        global: {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      }
-    );
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-
-    if (userError || !user || user.id !== userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { user, error: authError } = await verifyToken(accessToken);
+    if (authError || !user || user.id !== userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Use admin client (service role) to bypass RLS
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
 
     // Generate slug from business name
     const slug = businessName
@@ -93,7 +36,7 @@ export async function POST(request: Request) {
       .replace(/(^-|-$)/g, '')
       + '-' + Date.now().toString(36);
 
-    // Create organization
+    // Create organization using REST API
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
       .insert({
@@ -106,13 +49,13 @@ export async function POST(request: Request) {
         trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         onboarding_step: 1,
       })
-      .select()
+      .select('*')
       .single();
 
-    if (orgError) {
+    if (orgError || !org) {
       console.error('Org creation error:', orgError);
       return NextResponse.json(
-        { error: 'Failed to create organization: ' + orgError.message },
+        { error: 'Failed to create organization: ' + (orgError?.message || 'Unknown error') },
         { status: 500 }
       );
     }
@@ -138,14 +81,14 @@ export async function POST(request: Request) {
           settings: { view: true, edit: true },
         },
       })
-      .select()
+      .select('*')
       .single();
 
-    if (roleError) {
+    if (roleError || !role) {
       console.error('Role creation error:', roleError);
       await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
-        { error: 'Failed to create role: ' + roleError.message },
+        { error: 'Failed to create role: ' + (roleError?.message || 'Unknown error') },
         { status: 500 }
       );
     }
@@ -161,7 +104,9 @@ export async function POST(request: Request) {
         full_name: userName || userEmail.split('@')[0],
         is_owner: true,
         is_active: true,
-      });
+      })
+      .select('*')
+      .single();
 
     if (userRecordError) {
       console.error('User creation error:', userRecordError);
