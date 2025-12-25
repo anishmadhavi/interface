@@ -19,13 +19,13 @@ export default function DashboardLayout({
     const checkAuth = async () => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         router.push('/login');
         return;
       }
 
-      // Check if onboarding is completed
+      // Check if user exists and has completed onboarding
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('organization_id')
@@ -50,13 +50,13 @@ export default function DashboardLayout({
 
       setLoading(false);
     };
-    
+
     checkAuth();
   }, [router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-whatsapp" />
       </div>
     );
