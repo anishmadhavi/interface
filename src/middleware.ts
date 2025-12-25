@@ -1,16 +1,23 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname === '/favicon.ico' || pathname.includes('.')) {
+  // 1. FAST EXIT: Skip internals and assets to save Edge CPU costs
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname === '/favicon.ico' ||
+    pathname.includes('.')
+  ) {
     return NextResponse.next()
   }
 
   const isProtectedRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/inbox')
   if (!isProtectedRoute) return NextResponse.next()
 
+  // 2. Setup the "Sync" mechanism
   const requestHeaders = new Headers(request.headers)
   let response = NextResponse.next({
     request: { headers: requestHeaders },
@@ -21,35 +28,41 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          // 1. Update response cookies for the browser
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+        getAll() {
+          return request.cookies.getAll()
+        },
+        // FIX: Explicitly typed cookiesToSet to resolve build error
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          // A: Update response cookies (browser)
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
 
-          // 2. Hardened Request Sync: Update without duplicates or wiping
+          // B: Hardened Request Sync
           let cookieString = requestHeaders.get('cookie') || ''
-          
           cookiesToSet.forEach(({ name, value }) => {
-            // Remove existing version of this specific cookie to prevent duplicates
             const regex = new RegExp(`(?<=\\b)${name}=[^;]*;?`, 'g')
             cookieString = cookieString.replace(regex, '').trim()
-            // Append the new value
             cookieString += `${cookieString ? '; ' : ''}${name}=${value}`
           })
 
-          // Now safely set the entire cleaned/updated string
           requestHeaders.set('cookie', cookieString)
 
-          // 3. Sync response with the new clean headers
+          // C: Re-initialize response with updated headers
           response = NextResponse.next({
             request: { headers: requestHeaders },
           })
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+
+          // D: Re-apply cookies to new response
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
         },
       },
     }
   )
 
+  // 3. User check
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -63,5 +76,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
