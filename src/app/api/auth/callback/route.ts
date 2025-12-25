@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'edge';
 
@@ -9,20 +8,23 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    // Exchange code for session via Supabase REST API
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=authorization_code`,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+        method: 'POST',
+        headers: {
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ 
+          auth_code: code,
+          code_verifier: '', // PKCE if used
+        }),
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
-    if (!error) {
+    if (response.ok) {
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
