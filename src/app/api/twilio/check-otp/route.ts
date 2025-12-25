@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { adminClient, verifyToken, extractTokenFromCookies } from '@/lib/supabase/admin';
 
 export const runtime = 'edge';
 
@@ -15,81 +15,58 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get auth token from cookies
+    // Verify user is authenticated
     const cookieHeader = request.headers.get('cookie') || '';
-    let accessToken: string | undefined;
-
-    const cookies = Object.fromEntries(
-      cookieHeader.split('; ').filter(Boolean).map(c => {
-        const [key, ...val] = c.split('=');
-        return [key, val.join('=')];
-      })
-    );
-
-    const authCookieName = Object.keys(cookies).find(name => 
-      name.includes('auth-token') || name.includes('supabase')
-    );
-
-    if (authCookieName) {
-      try {
-        const cookieValue = decodeURIComponent(cookies[authCookieName]);
-        const parsed = JSON.parse(cookieValue);
-        accessToken = parsed.access_token || parsed[0]?.access_token;
-      } catch {
-        // Cookie parsing failed
-      }
-    }
+    const accessToken = extractTokenFromCookies(cookieHeader);
 
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify user is authenticated
-    const userClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: { autoRefreshToken: false, persistSession: false },
-        global: { headers: { Authorization: `Bearer ${accessToken}` } },
-      }
-    );
-
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Use admin client to check webhook logs
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    const { user, error: authError } = await verifyToken(accessToken);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check for recent OTP in otp_logs table
+    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+    // First get the organization's virtual number
+    const orgResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/organizations?id=eq.${organizationId}&select=virtual_number`,
       {
-        auth: { autoRefreshToken: false, persistSession: false },
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        },
       }
     );
 
-    // Check for recent OTP in webhook logs
-    const { data: log } = await adminClient
-      .from('webhook_logs')
-      .select('payload, created_at')
-      .eq('organization_id', organizationId)
-      .eq('source', 'TWILIO')
-      .eq('event_type', 'SMS_RECEIVED')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const orgData = await orgResponse.json();
+    const virtualNumber = orgData?.[0]?.virtual_number;
 
-    if (log?.payload?.extractedOtp) {
-      // Check if OTP is less than 10 minutes old
-      const createdAt = new Date(log.created_at).getTime();
-      const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    if (!virtualNumber) {
+      return NextResponse.json({ otp: null });
+    }
 
-      if (createdAt > tenMinutesAgo) {
-        return NextResponse.json({ otp: log.payload.extractedOtp });
+    // Check otp_logs for recent OTP
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    
+    const otpResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/otp_logs?phone=eq.${encodeURIComponent(virtualNumber)}&created_at=gte.${tenMinutesAgo}&order=created_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        },
       }
+    );
+
+    const otpData = await otpResponse.json();
+
+    if (otpData && otpData.length > 0 && otpData[0].code) {
+      return NextResponse.json({ otp: otpData[0].code });
     }
 
     return NextResponse.json({ otp: null });
