@@ -1,6 +1,8 @@
 import { Sidebar } from '@/components/common/Sidebar';
 import { Header } from '@/components/common/Header';
 
+export const runtime = 'edge';
+
 export default function DashboardLayout({
   children,
 }: {
