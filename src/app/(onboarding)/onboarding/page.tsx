@@ -1,7 +1,5 @@
 'use client';
 
-export const runtime = 'edge';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -78,13 +76,7 @@ export default function OnboardingPage() {
         .from('users')
         .select('organization_id, organizations(onboarding_completed, onboarding_step)')
         .eq('auth_id', user.id)
-        .single<{ 
-          organization_id: string; 
-          organizations: { 
-            onboarding_completed: boolean; 
-            onboarding_step: number; 
-          } 
-        }>();
+        .single();
 
       if (existingUser?.organizations?.onboarding_completed) {
         router.push('/dashboard');
@@ -123,9 +115,8 @@ export default function OnboardingPage() {
     if (!data.organizationId) return;
     
     const supabase = createClient();
-    
-    // FIX APPLIED: Cast the query builder to 'any' to bypass 'never' type restriction
-    await (supabase.from('organizations') as any)
+    await supabase
+      .from('organizations')
       .update({ onboarding_step: step })
       .eq('id', data.organizationId);
   };
@@ -134,9 +125,8 @@ export default function OnboardingPage() {
     if (!data.organizationId) return;
     
     const supabase = createClient();
-    
-    // FIX APPLIED: Cast the query builder to 'any' to bypass 'never' type restriction
-    await (supabase.from('organizations') as any)
+    await supabase
+      .from('organizations')
       .update({ 
         onboarding_completed: true,
         onboarding_step: 4,
