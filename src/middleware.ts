@@ -3,28 +3,38 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // 1. FAST EXIT: Skip assets
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname === '/favicon.ico' || pathname.includes('.')) {
+  // 1. FAST EXIT: Skip assets and internal routes
+  if (
+    pathname.startsWith('/_next') || 
+    pathname.startsWith('/api') || 
+    pathname === '/favicon.ico' || 
+    pathname.includes('.')
+  ) {
     return NextResponse.next()
   }
 
   const isProtectedRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/inbox')
   if (!isProtectedRoute) return NextResponse.next()
 
-  // 2. Identify the Supabase Auth Cookie 
-  // Supabase SSR cookies usually start with "sb-"
-  const authCookie = request.cookies.getAll().find(c => c.name.startsWith('sb-'))?.value
-  
+  // 2. Locate the Auth Cookie
+  // Supabase SSR cookies often start with "sb-" followed by your project ref
+  const allCookies = request.cookies.getAll()
+  const authCookie = allCookies.find(c => c.name.includes('-auth-token'))?.value
+
   if (!authCookie) {
     return redirectToLogin(request, pathname)
   }
 
   try {
-    // 3. MANUAL AUTH CHECK (Zero SDK dependencies) 
-    // We call the Supabase Auth "/user" endpoint directly using standard fetch
+    // 3. MANUAL AUTH CHECK (Zero SDK dependencies)
+    // We call the Supabase Auth API directly using standard fetch
+    const sessionData = JSON.parse(authCookie)
+    const accessToken = sessionData.access_token
+
     const authResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${JSON.parse(authCookie).access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       },
     })
@@ -33,10 +43,9 @@ export async function middleware(request: NextRequest) {
       return redirectToLogin(request, pathname)
     }
 
-    // User is valid, proceed to the dashboard/inbox
     return NextResponse.next()
   } catch (err) {
-    // If the fetch fails or cookie is malformed, redirect to login
+    // If cookie is malformed or fetch fails, treat as unauthenticated
     return redirectToLogin(request, pathname)
   }
 }
@@ -49,5 +58,5 @@ function redirectToLogin(request: NextRequest, pathname: string) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
