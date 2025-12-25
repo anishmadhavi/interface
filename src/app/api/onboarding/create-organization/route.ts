@@ -3,6 +3,15 @@ import { adminClient, verifyToken, extractTokenFromCookies } from '@/lib/supabas
 
 export const runtime = 'edge';
 
+// 1. Define interfaces for the data we expect
+interface Organization {
+  id: string;
+}
+
+interface Role {
+  id: string;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -37,6 +46,7 @@ export async function POST(request: Request) {
       + '-' + Date.now().toString(36);
 
     // Create organization using REST API
+    // 2. FIX: Add <Organization> generic to single()
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
       .insert({
@@ -50,7 +60,7 @@ export async function POST(request: Request) {
         onboarding_step: 1,
       })
       .select('*')
-      .single();
+      .single<Organization>(); // <--- EXPLICIT TYPE
 
     if (orgError || !org) {
       console.error('Org creation error:', orgError);
@@ -61,10 +71,11 @@ export async function POST(request: Request) {
     }
 
     // Create default admin role
+    // 3. FIX: Add <Role> generic to single()
     const { data: role, error: roleError } = await adminClient
       .from('roles')
       .insert({
-        organization_id: org.id,
+        organization_id: org.id, // Now TypeScript knows 'id' exists
         name: 'Admin',
         description: 'Full access to all features',
         is_admin: true,
@@ -82,10 +93,11 @@ export async function POST(request: Request) {
         },
       })
       .select('*')
-      .single();
+      .single<Role>(); // <--- EXPLICIT TYPE
 
     if (roleError || !role) {
       console.error('Role creation error:', roleError);
+      // Cleanup organization if role creation fails
       await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
         { error: 'Failed to create role: ' + (roleError?.message || 'Unknown error') },
@@ -99,7 +111,7 @@ export async function POST(request: Request) {
       .insert({
         auth_id: userId,
         organization_id: org.id,
-        role_id: role.id,
+        role_id: role.id, // Now TypeScript knows 'id' exists
         email: userEmail,
         full_name: userName || userEmail.split('@')[0],
         is_owner: true,
@@ -110,6 +122,7 @@ export async function POST(request: Request) {
 
     if (userRecordError) {
       console.error('User creation error:', userRecordError);
+      // Cleanup if user creation fails
       await adminClient.from('roles').delete().eq('id', role.id);
       await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
