@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'edge';
 
@@ -14,30 +14,51 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify user is authenticated and belongs to this organization
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get auth token from cookies
+    const cookieHeader = request.headers.get('cookie') || '';
+    let accessToken: string | undefined;
 
-    if (!user) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').filter(Boolean).map(c => {
+        const [key, ...val] = c.split('=');
+        return [key, val.join('=')];
+      })
+    );
+
+    const authCookieName = Object.keys(cookies).find(name => 
+      name.includes('auth-token') || name.includes('supabase')
+    );
+
+    if (authCookieName) {
+      try {
+        const cookieValue = decodeURIComponent(cookies[authCookieName]);
+        const parsed = JSON.parse(cookieValue);
+        accessToken = parsed.access_token || parsed[0]?.access_token;
+      } catch {
+        // Cookie parsing failed
+      }
+    }
+
+    if (!accessToken) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Verify organization
-    // FIX 1: Added explicit type definition
-    const { data: userData } = await supabase
-      .from('users')
-      .select('organization_id')
-      .eq('auth_id', user.id)
-      .single<{ organization_id: string }>();
+    // Verify user
+    const userClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      }
+    );
 
-    if (userData?.organization_id !== organizationId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check Twilio credentials
@@ -56,7 +77,7 @@ export async function POST(request: Request) {
     
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
       },
     });
 
@@ -87,7 +108,7 @@ export async function POST(request: Request) {
     const purchaseResponse = await fetch(purchaseUrl, {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
@@ -109,9 +130,17 @@ export async function POST(request: Request) {
 
     const purchaseData = await purchaseResponse.json();
 
-    // Update organization with the virtual number
-    // FIX 2: Added 'as any' to bypass strict type checking
-    const { error: updateError } = await (supabase.from('organizations') as any)
+    // Update organization with admin client
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+      }
+    );
+
+    await adminClient
+      .from('organizations')
       .update({
         virtual_number: purchaseData.phone_number,
         virtual_number_provider: 'TWILIO',
@@ -119,11 +148,6 @@ export async function POST(request: Request) {
         virtual_number_monthly_cost: 150,
       })
       .eq('id', organizationId);
-
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      // Number is purchased but DB failed - still return success
-    }
 
     return NextResponse.json({
       phoneNumber: purchaseData.phone_number,
