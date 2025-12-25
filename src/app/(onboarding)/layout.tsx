@@ -1,27 +1,43 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
 
-// 1. Add Edge Runtime
-export const runtime = 'edge';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { Loader2 } from 'lucide-react';
 
-export default async function OnboardingLayout({
+export default function OnboardingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // 2. FIX: Remove 'await' here
-  const supabase = createClient();
-  
-  // This part stays async (fetching data is always async)
-  const { data: { session } } = await supabase.auth.getSession();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  if (!session) {
-    redirect('/login');
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-whatsapp" />
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center space-x-2">
