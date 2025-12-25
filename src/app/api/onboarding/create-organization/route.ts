@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'edge';
 
@@ -17,19 +16,75 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify the user is authenticated
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Verify the user is authenticated by checking the token
+    const cookieHeader = request.headers.get('cookie') || '';
+    let accessToken: string | undefined;
 
-    if (!user || user.id !== userId) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').filter(Boolean).map(c => {
+        const [key, ...val] = c.split('=');
+        return [key, val.join('=')];
+      })
+    );
+
+    const authCookieName = Object.keys(cookies).find(name => 
+      name.includes('auth-token') || name.includes('supabase')
+    );
+
+    if (authCookieName) {
+      try {
+        const cookieValue = decodeURIComponent(cookies[authCookieName]);
+        const parsed = JSON.parse(cookieValue);
+        accessToken = parsed.access_token || parsed[0]?.access_token;
+      } catch {
+        // Cookie parsing failed
+      }
+    }
+
+    if (!accessToken) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Use admin client to bypass RLS
-    const adminClient = createAdminClient();
+    // Verify token and get user
+    const userClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      }
+    );
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+
+    if (userError || !user || user.id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Use admin client (service role) to bypass RLS
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
 
     // Generate slug from business name
     const slug = businessName
@@ -39,9 +94,8 @@ export async function POST(request: Request) {
       + '-' + Date.now().toString(36);
 
     // Create organization
-    // FIX 1: Added 'as any' cast
-    const { data: org, error: orgError } = await (adminClient
-      .from('organizations') as any)
+    const { data: org, error: orgError } = await adminClient
+      .from('organizations')
       .insert({
         name: businessName,
         slug,
@@ -64,9 +118,8 @@ export async function POST(request: Request) {
     }
 
     // Create default admin role
-    // FIX 2: Added 'as any' cast
-    const { data: role, error: roleError } = await (adminClient
-      .from('roles') as any)
+    const { data: role, error: roleError } = await adminClient
+      .from('roles')
       .insert({
         organization_id: org.id,
         name: 'Admin',
@@ -90,9 +143,7 @@ export async function POST(request: Request) {
 
     if (roleError) {
       console.error('Role creation error:', roleError);
-      // Rollback organization
-      // FIX 3: Added 'as any' cast
-      await (adminClient.from('organizations') as any).delete().eq('id', org.id);
+      await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
         { error: 'Failed to create role: ' + roleError.message },
         { status: 500 }
@@ -100,9 +151,8 @@ export async function POST(request: Request) {
     }
 
     // Create user record
-    // FIX 4: Added 'as any' cast
-    const { error: userError } = await (adminClient
-      .from('users') as any)
+    const { error: userRecordError } = await adminClient
+      .from('users')
       .insert({
         auth_id: userId,
         organization_id: org.id,
@@ -113,14 +163,12 @@ export async function POST(request: Request) {
         is_active: true,
       });
 
-    if (userError) {
-      console.error('User creation error:', userError);
-      // Rollback
-      // FIX 5: Added 'as any' cast
-      await (adminClient.from('roles') as any).delete().eq('id', role.id);
-      await (adminClient.from('organizations') as any).delete().eq('id', org.id);
+    if (userRecordError) {
+      console.error('User creation error:', userRecordError);
+      await adminClient.from('roles').delete().eq('id', role.id);
+      await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
-        { error: 'Failed to create user: ' + userError.message },
+        { error: 'Failed to create user: ' + userRecordError.message },
         { status: 500 }
       );
     }
