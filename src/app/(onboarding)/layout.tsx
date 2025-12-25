@@ -17,20 +17,21 @@ export default function OnboardingLayout({
     const checkAuth = async () => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         router.push('/login');
-      } else {
-        setLoading(false);
+        return;
       }
+
+      setLoading(false);
     };
-    
+
     checkAuth();
   }, [router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-whatsapp" />
       </div>
     );
