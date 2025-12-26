@@ -2,7 +2,6 @@
 ├── Dockerfile
 ├── README.md
 ├── components.json
-├── next.config.js
 ├── package.json
 ├── postcss.config.js
 ├── project-tree
@@ -74,4 +73,4 @@
 ├── tsconfig.json
 └── wrangler.toml
 
-28 directories, 47 files
+28 directories, 46 files
