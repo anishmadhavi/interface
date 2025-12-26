@@ -1,4 +1,4 @@
-# Interface - WhatsApp Business Platform
+# Interface - WhatsApp Business Platforms
 
 A multi-tenant SaaS platform for managing WhatsApp Business communications.
 
