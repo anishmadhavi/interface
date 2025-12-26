@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminClient, verifyToken, extractTokenFromCookies } from '@/lib/supabase/admin';
-
-export const runtime = 'edge';
-
-// 1. Define interfaces for the data we expect
-interface Organization {
-  id: string;
-}
-
-interface Role {
-  id: string;
-}
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -25,18 +15,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify user is authenticated
-    const cookieHeader = request.headers.get('cookie') || '';
-    const accessToken = extractTokenFromCookies(cookieHeader);
+    // Verify the user is authenticated
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user || user.id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { user, error: authError } = await verifyToken(accessToken);
-    if (authError || !user || user.id !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
 
     // Generate slug from business name
     const slug = businessName
@@ -45,8 +36,7 @@ export async function POST(request: Request) {
       .replace(/(^-|-$)/g, '')
       + '-' + Date.now().toString(36);
 
-    // Create organization using REST API
-    // 2. FIX: Add <Organization> generic to single()
+    // Create organization
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
       .insert({
@@ -59,23 +49,22 @@ export async function POST(request: Request) {
         trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         onboarding_step: 1,
       })
-      .select('*')
-      .single<Organization>(); // <--- EXPLICIT TYPE
+      .select()
+      .single();
 
-    if (orgError || !org) {
+    if (orgError) {
       console.error('Org creation error:', orgError);
       return NextResponse.json(
-        { error: 'Failed to create organization: ' + (orgError?.message || 'Unknown error') },
+        { error: 'Failed to create organization: ' + orgError.message },
         { status: 500 }
       );
     }
 
     // Create default admin role
-    // 3. FIX: Add <Role> generic to single()
     const { data: role, error: roleError } = await adminClient
       .from('roles')
       .insert({
-        organization_id: org.id, // Now TypeScript knows 'id' exists
+        organization_id: org.id,
         name: 'Admin',
         description: 'Full access to all features',
         is_admin: true,
@@ -92,41 +81,39 @@ export async function POST(request: Request) {
           settings: { view: true, edit: true },
         },
       })
-      .select('*')
-      .single<Role>(); // <--- EXPLICIT TYPE
+      .select()
+      .single();
 
-    if (roleError || !role) {
+    if (roleError) {
       console.error('Role creation error:', roleError);
-      // Cleanup organization if role creation fails
+      // Rollback organization
       await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
-        { error: 'Failed to create role: ' + (roleError?.message || 'Unknown error') },
+        { error: 'Failed to create role: ' + roleError.message },
         { status: 500 }
       );
     }
 
     // Create user record
-    const { error: userRecordError } = await adminClient
+    const { error: userError } = await adminClient
       .from('users')
       .insert({
         auth_id: userId,
         organization_id: org.id,
-        role_id: role.id, // Now TypeScript knows 'id' exists
+        role_id: role.id,
         email: userEmail,
         full_name: userName || userEmail.split('@')[0],
         is_owner: true,
         is_active: true,
-      })
-      .select('*')
-      .single();
+      });
 
-    if (userRecordError) {
-      console.error('User creation error:', userRecordError);
-      // Cleanup if user creation fails
+    if (userError) {
+      console.error('User creation error:', userError);
+      // Rollback
       await adminClient.from('roles').delete().eq('id', role.id);
       await adminClient.from('organizations').delete().eq('id', org.id);
       return NextResponse.json(
-        { error: 'Failed to create user: ' + userRecordError.message },
+        { error: 'Failed to create user: ' + userError.message },
         { status: 500 }
       );
     }
