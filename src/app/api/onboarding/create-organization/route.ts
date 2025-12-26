@@ -119,9 +119,9 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+return NextResponse.json({
       success: true,
-      organizationId: org.id,
+      organizationId: (org as any).id, // FIX: Cast org
     });
 
   } catch (error) {
