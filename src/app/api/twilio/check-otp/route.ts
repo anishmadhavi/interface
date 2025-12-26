@@ -35,13 +35,16 @@ export async function GET(request: Request) {
       .limit(1)
       .single();
 
-    if (log?.payload?.extractedOtp) {
+    // FIX: Cast log to any to access properties
+    const logData = log as any;
+
+    if (logData?.payload?.extractedOtp) {
       // Check if OTP is less than 10 minutes old
-      const createdAt = new Date(log.created_at).getTime();
+      const createdAt = new Date(logData.created_at).getTime();
       const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
 
       if (createdAt > tenMinutesAgo) {
-        return NextResponse.json({ otp: log.payload.extractedOtp });
+        return NextResponse.json({ otp: logData.payload.extractedOtp });
       }
     }
 
