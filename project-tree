@@ -6,8 +6,72 @@
 ├── package.json
 ├── postcss.config.js
 ├── project-tree
+├── src
+│   ├── app
+│   │   ├── (auth)
+│   │   │   ├── layout.tsx
+│   │   │   ├── login
+│   │   │   │   └── page.tsx
+│   │   │   └── register
+│   │   │       └── page.tsx
+│   │   ├── (dashboard)
+│   │   │   ├── dashboard
+│   │   │   │   └── page.tsx
+│   │   │   └── layout.tsx
+│   │   ├── (onboarding)
+│   │   │   ├── layout.tsx
+│   │   │   └── onboarding
+│   │   │       └── page.tsx
+│   │   ├── api
+│   │   │   ├── auth
+│   │   │   │   └── callback
+│   │   │   │       └── route.ts
+│   │   │   ├── onboarding
+│   │   │   │   └── create-organization
+│   │   │   │       └── route.ts
+│   │   │   ├── twilio
+│   │   │   │   ├── buy-number
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── check-otp
+│   │   │   │       └── route.ts
+│   │   │   └── webhooks
+│   │   │       └── twilio
+│   │   │           └── route.ts
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   ├── common
+│   │   │   ├── Header.tsx
+│   │   │   └── Sidebar.tsx
+│   │   ├── onboarding
+│   │   │   ├── BusinessDetailsStep.tsx
+│   │   │   ├── ConnectWhatsAppStep.tsx
+│   │   │   ├── NumberSelectionStep.tsx
+│   │   │   ├── PlanSelectionStep.tsx
+│   │   │   └── StepIndicator.tsx
+│   │   └── ui
+│   │       ├── avatar.tsx
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── toast.tsx
+│   │       └── toaster.tsx
+│   ├── hooks
+│   │   └── useToast.ts
+│   ├── lib
+│   │   ├── supabase
+│   │   │   ├── admin.ts
+│   │   │   ├── client.ts
+│   │   │   └── server.ts
+│   │   └── utils.ts
+│   ├── middleware.ts
+│   └── types
+│       └── database.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
 └── wrangler.toml
 
-1 directory, 10 files
+28 directories, 47 files
