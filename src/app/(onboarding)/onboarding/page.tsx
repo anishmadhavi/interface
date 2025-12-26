@@ -71,21 +71,29 @@ export default function OnboardingPage() {
       setUserEmail(user.email || null);
       setUserName(user.user_metadata?.full_name || null);
 
-      // Check if user already has an organization
+// Check if user already has an organization
       const { data: existingUser } = await supabase
         .from('users')
         .select('organization_id, organizations(onboarding_completed, onboarding_step)')
         .eq('auth_id', user.id)
         .single();
 
-      if (existingUser?.organizations?.onboarding_completed) {
+      // FIX: Handle organizations being returned as an array
+      const orgData = Array.isArray(existingUser?.organizations) 
+        ? existingUser.organizations[0] 
+        : existingUser?.organizations;
+
+      // Use orgData instead of existingUser.organizations directly
+      // @ts-ignore
+      if (orgData?.onboarding_completed) {
         router.push('/dashboard');
         return;
       }
 
       if (existingUser?.organization_id) {
         setData(prev => ({ ...prev, organizationId: existingUser.organization_id }));
-        setCurrentStep(existingUser.organizations?.onboarding_step || 1);
+        // @ts-ignore
+        setCurrentStep(orgData?.onboarding_step || 1);
       }
 
       setLoading(false);
