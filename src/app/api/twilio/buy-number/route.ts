@@ -30,7 +30,8 @@ export async function POST(request: Request) {
       .eq('auth_id', user.id)
       .single();
 
-    if (userData?.organization_id !== organizationId) {
+    // FIX: Cast userData to any
+    if ((userData as any)?.organization_id !== organizationId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
         virtual_number_provider: 'TWILIO',
         virtual_number_sid: purchaseData.sid,
         virtual_number_monthly_cost: 150,
-      })
+      } as any) // FIX: Cast update payload to any
       .eq('id', organizationId);
 
     if (updateError) {
