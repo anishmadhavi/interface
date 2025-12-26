@@ -36,14 +36,14 @@ export async function POST(request: Request) {
       .replace(/(^-|-$)/g, '')
       + '-' + Date.now().toString(36);
 
-// Create organization
+    // Create organization
+    // FIX 1: Cast insert object to 'any'
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
       .insert({
-        // FIX: Casting to 'any' to bypass strict type checking during build
         name: businessName,
         slug,
-        business_name: businessName, 
+        business_name: businessName,
         business_category: businessCategory,
         website: website || null,
         subscription_status: 'TRIAL',
@@ -61,11 +61,12 @@ export async function POST(request: Request) {
       );
     }
 
-// Create default admin role
+    // Create default admin role
     const { data: role, error: roleError } = await adminClient
       .from('roles')
       .insert({
-        organization_id: org.id,
+        // FIX 2: Cast org to 'any' to access .id
+        organization_id: (org as any).id,
         name: 'Admin',
         description: 'Full access to all features',
         is_admin: true,
@@ -81,49 +82,50 @@ export async function POST(request: Request) {
           integrations: { view: true, manage: true },
           settings: { view: true, edit: true },
         },
-      } as any) // FIX: Cast to any
+      } as any)
       .select()
       .single();
 
     if (roleError) {
       console.error('Role creation error:', roleError);
-      // Rollback organization
-      await adminClient.from('organizations').delete().eq('id', org.id);
+      // Rollback organization (FIX 3: Cast org to any)
+      await adminClient.from('organizations').delete().eq('id', (org as any).id);
       return NextResponse.json(
         { error: 'Failed to create role: ' + roleError.message },
         { status: 500 }
       );
     }
 
-// Create user record
+    // Create user record
     const { error: userError } = await adminClient
       .from('users')
       .insert({
         auth_id: userId,
-        organization_id: org.id,
-        role_id: role.id,
+        // FIX 4: Cast org and role to any
+        organization_id: (org as any).id,
+        role_id: (role as any).id,
         email: userEmail,
         full_name: userName || userEmail.split('@')[0],
         is_owner: true,
         is_active: true,
-      } as any); // FIX: Cast to any (prevent next error)
+      } as any);
 
     if (userError) {
       console.error('User creation error:', userError);
-      // Rollback
-      await adminClient.from('roles').delete().eq('id', role.id);
-      await adminClient.from('organizations').delete().eq('id', org.id);
+      // Rollback (FIX 5: Cast role and org to any)
+      await adminClient.from('roles').delete().eq('id', (role as any).id);
+      await adminClient.from('organizations').delete().eq('id', (org as any).id);
       return NextResponse.json(
         { error: 'Failed to create user: ' + userError.message },
         { status: 500 }
       );
     }
 
-return NextResponse.json({
+    return NextResponse.json({
       success: true,
-      organizationId: (org as any).id, // FIX: Cast org
+      // FIX 6: Cast org to any
+      organizationId: (org as any).id,
     });
-
   } catch (error) {
     console.error('Error in create-organization:', error);
     return NextResponse.json(
