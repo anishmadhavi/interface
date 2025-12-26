@@ -78,14 +78,19 @@ export default function OnboardingPage() {
         .eq('auth_id', user.id)
         .single();
 
-      if (existingUser?.organizations?.onboarding_completed) {
+      // FIX: Handle Supabase Join Array safely
+      // Cast to 'any' to avoid strict type errors during build if types are misaligned
+      const orgs = existingUser?.organizations as any;
+      const orgData = Array.isArray(orgs) ? orgs[0] : orgs;
+
+      if (orgData?.onboarding_completed) {
         router.push('/dashboard');
         return;
       }
 
       if (existingUser?.organization_id) {
         setData(prev => ({ ...prev, organizationId: existingUser.organization_id }));
-        setCurrentStep(existingUser.organizations?.onboarding_step || 1);
+        setCurrentStep(orgData?.onboarding_step || 1);
       }
 
       setLoading(false);
