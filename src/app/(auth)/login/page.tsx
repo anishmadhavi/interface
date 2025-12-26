@@ -44,20 +44,28 @@ export default function LoginPage() {
           .eq('auth_id', data.user.id)
           .single();
 
+        // --- FIX STARTS HERE ---
+        // Supabase often returns relations as an array (e.g., [{ onboarding_completed: true }])
+        // We safely cast to 'any' to stop the build error, then check if it's an array or object.
+        const orgs = userData?.organizations as any;
+        const orgData = Array.isArray(orgs) ? orgs[0] : orgs;
+
         if (!userData?.organization_id) {
-          // New user, needs onboarding
+          // New user (no org linked yet), needs onboarding
           router.push('/onboarding');
-        } else if (!userData?.organizations?.onboarding_completed) {
-          // Incomplete onboarding
+        } else if (!orgData?.onboarding_completed) {
+          // Has org, but onboarding is incomplete
           router.push('/onboarding');
         } else {
-          // Go to dashboard
+          // All good, go to dashboard
           router.push('/dashboard');
         }
+        // --- FIX ENDS HERE ---
         
         router.refresh();
       }
     } catch (err) {
+      console.error(err); // Log the real error to console for debugging
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
