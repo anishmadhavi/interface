@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create default admin role
+// Create default admin role
     const { data: role, error: roleError } = await adminClient
       .from('roles')
       .insert({
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
           integrations: { view: true, manage: true },
           settings: { view: true, edit: true },
         },
-      })
+      } as any) // FIX: Cast to any
       .select()
       .single();
 
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create user record
+// Create user record
     const { error: userError } = await adminClient
       .from('users')
       .insert({
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
         full_name: userName || userEmail.split('@')[0],
         is_owner: true,
         is_active: true,
-      });
+      } as any); // FIX: Cast to any (prevent next error)
 
     if (userError) {
       console.error('User creation error:', userError);
