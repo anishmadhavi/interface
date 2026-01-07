@@ -1,4 +1,143 @@
 .
-└── project-tree
+├── README.md
+├── components.json
+├── next-env.d.ts
+├── next.config.js
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── project-tree
+├── src
+│   ├── app
+│   │   ├── (auth)
+│   │   │   ├── layout.tsx
+│   │   │   ├── login
+│   │   │   │   └── page.tsx
+│   │   │   └── register
+│   │   │       └── page.tsx
+│   │   ├── (dashboard)
+│   │   │   ├── analytics
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── reports
+│   │   │   │       └── page.tsx
+│   │   │   ├── billing
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── plans
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── transactions
+│   │   │   │       └── page.tsx
+│   │   │   ├── campaigns
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── create
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── contacts
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── import
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── dashboard
+│   │   │   │   └── page.tsx
+│   │   │   ├── inbox
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── marketing-ads
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── analytics
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── create
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── settings
+│   │   │   │   ├── api-keys
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── team
+│   │   │   │   ├── invite
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── templates
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── create
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── trust-center
+│   │   │   │   ├── limits
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── verification
+│   │   │   │       └── page.tsx
+│   │   │   └── workflows
+│   │   │       ├── [id]
+│   │   │       │   └── page.tsx
+│   │   │       ├── editor
+│   │   │       │   └── page.tsx
+│   │   │       └── page.tsx
+│   │   ├── (onboarding)
+│   │   │   ├── embedded-signup
+│   │   │   │   └── page.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── onboarding
+│   │   │   │   └── page.tsx
+│   │   │   ├── select-mode
+│   │   │   │   └── page.tsx
+│   │   │   └── virtual-sim
+│   │   │       └── page.tsx
+│   │   ├── api
+│   │   │   ├── auth
+│   │   │   │   └── callback
+│   │   │   │       └── route.ts
+│   │   │   ├── onboarding
+│   │   │   │   └── create-organization
+│   │   │   │       └── route.ts
+│   │   │   ├── twilio
+│   │   │   │   ├── buy-number
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── check-otp
+│   │   │   │       └── route.ts
+│   │   │   └── webhooks
+│   │   │       └── twilio
+│   │   │           └── route.ts
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components
+│   │   ├── common
+│   │   │   ├── Header.tsx
+│   │   │   └── Sidebar.tsx
+│   │   ├── onboarding
+│   │   │   ├── BusinessDetailsStep.tsx
+│   │   │   ├── ConnectWhatsAppStep.tsx
+│   │   │   ├── NumberSelectionStep.tsx
+│   │   │   ├── PlanSelectionStep.tsx
+│   │   │   └── StepIndicator.tsx
+│   │   └── ui
+│   │       ├── avatar.tsx
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── toast.tsx
+│   │       └── toaster.tsx
+│   ├── hooks
+│   │   └── useToast.ts
+│   ├── lib
+│   │   ├── supabase
+│   │   │   ├── admin.ts
+│   │   │   ├── client.ts
+│   │   │   └── server.ts
+│   │   └── utils.ts
+│   ├── middleware.ts
+│   └── types
+│       └── database.ts
+├── tailwind.config.ts
+└── tsconfig.json
 
-1 directory, 1 file
+61 directories, 80 files
