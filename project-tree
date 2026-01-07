@@ -1,7 +1,8 @@
 .
 ├── Dockerfile
-├── README.md
 ├── components.json
+├── delete
+│   └── README.md
 ├── next.config.js
 ├── package.json
 ├── postcss.config.js
@@ -10,4 +11,4 @@
 ├── tsconfig.json
 └── wrangler.toml
 
-1 directory, 10 files
+2 directories, 10 files
