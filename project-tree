@@ -8,7 +8,6 @@
 ├── postcss.config.js
 ├── project-tree
 ├── tailwind.config.ts
-├── tsconfig.json
-└── wrangler.toml
+└── tsconfig.json
 
-2 directories, 10 files
+2 directories, 9 files
