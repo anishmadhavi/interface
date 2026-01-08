@@ -46,6 +46,8 @@
 │   │   │   │   ├── [id]
 │   │   │   │   │   └── page.tsx
 │   │   │   │   └── page.tsx
+│   │   │   ├── integrations
+│   │   │   │   └── page.tsx
 │   │   │   ├── layout.tsx
 │   │   │   ├── marketing-ads
 │   │   │   │   ├── [id]
@@ -163,4 +165,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-73 directories, 91 files
+74 directories, 92 files
