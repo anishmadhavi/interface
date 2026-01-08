@@ -97,6 +97,7 @@
 │   │   │   │   └── create-organization
 │   │   │   │       └── route.ts
 │   │   │   ├── templates
+│   │   │   │   ├── route.ts
 │   │   │   │   └── whatsapp-send-route.ts
 │   │   │   ├── twilio
 │   │   │   │   ├── buy-number
@@ -145,4 +146,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-64 directories, 82 files
+64 directories, 83 files
