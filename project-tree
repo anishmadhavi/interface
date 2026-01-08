@@ -20,6 +20,8 @@
 │   │   │   │   ├── page.tsx
 │   │   │   │   └── reports
 │   │   │   │       └── page.tsx
+│   │   │   ├── automations
+│   │   │   │   └── page.tsx
 │   │   │   ├── billing
 │   │   │   │   ├── page.tsx
 │   │   │   │   ├── plans
@@ -161,4 +163,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-72 directories, 90 files
+73 directories, 91 files
