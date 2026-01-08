@@ -117,6 +117,8 @@
 │   │   │   │   └── twilio
 │   │   │   │       └── route.ts
 │   │   │   └── whatsapp
+│   │   │       ├── send
+│   │   │       │   └── route.ts
 │   │   │       └── webhook
 │   │   │           └── route.ts
 │   │   ├── globals.css
@@ -155,4 +157,4 @@
 ├── tailwind.config.ts
 └── tsconfig.json
 
-69 directories, 87 files
+70 directories, 88 files
